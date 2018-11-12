@@ -1,0 +1,6 @@
+.snakemake
+*.txt
+*.bam
+*.fai
+*.vcf
+!*.log

@@ -1,0 +1,116 @@
+import glob
+
+REPETITIONS=3
+
+prefs=[x[:-3] for x in glob.glob("*.fa")]
+
+rule all:
+    input:
+        [
+            #"summary.tsv",
+            #"Supplementary_Figure_2.pdf",
+            [
+                f"{x}.summary.tsv",
+                #f"{x}.ococo.vcf",
+                #f"{x}.varscan.vcf",
+                #f"{x}.ococo-pileup.txt",
+                #f"{x}.samtools-pileup.txt",
+            ]
+            for x in prefs
+        ]
+
+
+## SUMMARY
+
+rule summary:
+    input:
+        "{name}.ococo.vcf",
+        "{name}.varscan.vcf",
+        "{name}.ococo-pileup.txt",
+        "{name}.samtools-pileup.txt",
+    output:
+        sm="{name}.summary.tsv",
+    shell:
+        """
+        ./average_results.sh benchmarks/{wildcards.name}*.log | sort > {output.sm}
+        """
+
+## CONVERTING & SORTING
+
+rule:
+    input:
+        sam="{name}.sam"
+    output:
+        bam="{name}.unsorted.bam"
+    shell:
+        """
+        samtools view -b {input.sam} > {output.bam}
+        """
+
+rule:
+    input:
+        bam="{name}.unsorted.bam"
+    output:
+        bam="{name}.sorted.bam"
+    benchmark:
+        repeat("benchmarks/{name}.SAMtools-sort.log",REPETITIONS)
+    shell:
+        """
+        samtools sort {input.bam} > {output.bam}
+        """
+
+## PILEUP
+
+rule:
+    input:
+        bam="{name}.sorted.bam",
+        fa="{name}.fa",
+    output:
+        pileup="{name}.samtools-pileup.txt"
+    benchmark:
+        repeat("benchmarks/{name}.SAMtools-mpileup.log",REPETITIONS)
+    shell:
+        """
+        samtools mpileup -f {input.fa} {input.bam} > {output.pileup}
+        """
+
+rule:
+    input:
+        bam="{name}.unsorted.bam",
+        fa="{name}.fa",
+    output:
+        pileup="{name}.ococo-pileup.txt"
+    benchmark:
+        repeat("benchmarks/{name}.Ococo-pileup.log",REPETITIONS)
+    shell:
+        """
+        ococo -i {input.bam} -f {input.fa} -P {output.pileup}
+        """
+
+## VARIANTS
+
+rule:
+    input:
+        pileup="{name}.samtools-pileup.txt"
+    output:
+        vcf="{name}.varscan.vcf"
+    benchmark:
+        repeat("benchmarks/{name}.VarScan-variants.log",REPETITIONS)
+    shell:
+        """
+        varscan mpileup2snp {input.pileup} > {output.vcf}
+        """
+
+rule:
+    input:
+        bam="{name}.unsorted.bam",
+        fa="{name}.fa",
+    output:
+        vcf="{name}.ococo.vcf",
+    benchmark:
+        repeat("benchmarks/{name}.Ococo-variants.log",REPETITIONS)
+    shell:
+        """
+        ococo -i {input.bam} -f {input.fa} -V {output.vcf}
+        """
+

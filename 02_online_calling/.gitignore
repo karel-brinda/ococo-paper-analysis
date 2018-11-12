@@ -1,0 +1,9 @@
+*/
+*.fa.*
+*.genome.fa
+*.fq
+_*
+*.sam
+*.vcf
+*.txt
+.snakemake/

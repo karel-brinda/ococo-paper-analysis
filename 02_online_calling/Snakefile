@@ -1,0 +1,102 @@
+import glob
+import rnftools
+
+samples=list(filter(lambda y: y.find("genome")==-1, [x[:-3] for x in glob.glob("*.fa")]))
+
+
+for sample in samples:
+    rnftools.mishmash.sample(sample, reads_in_tuple=1)
+
+    rnftools.mishmash.DwgSim(
+            fasta="{}.fa".format(sample),
+            vcf="{}.mutations.vcf".format(sample),
+            haploid_mode=True,
+            coverage=20,
+            error_rate_1=0.01,
+            mutation_rate=0.02,
+            read_length_1=100,
+            read_length_2=0,
+    )
+
+
+include: rnftools.include()
+rule:
+    input:
+        rnftools.input(),
+        [
+            (
+                x+".ococo.vcf",
+                x+".genome.fa",
+                x+".stats.tsv",
+            )
+            for x in samples
+        ]
+
+
+rule stats:
+    input:
+        ed="_{name}.edit_dist.tsv",
+        c="_{name}.ococo_log_cumul.tsv",
+    output:
+        stats="{name}.stats.tsv",
+    shell:
+        """
+            ./finalize_stats.py {input.ed} {input.c} > {output.stats}
+        """
+
+
+rule edit_dist:
+    input:
+        ococo_vcf="{name}.ococo.vcf",
+        fq="{name}.fq",
+    output:
+        ed="_{name}.edit_dist.tsv"
+    params:
+        dwgsim_vcf="{name}.mutations.vcf",
+    shell:
+        """
+            ./evaluate_ococo_variants.py {params.dwgsim_vcf} {input.ococo_vcf} > {output.ed}
+        """
+
+rule ococo_vcf:
+    input:
+        reference="{name}.fa",
+        sam="{name}.sam",
+    output:
+        vcf="{name}.ococo.vcf",
+        lg="_{name}.ococo_log.tsv",
+        lg2="_{name}.ococo_log_cumul.tsv",
+    shell:
+        """
+            ococo -m real-time -x ococo32 -i {input.sam} -f {input.reference} -V - -L {output.lg} > {output.vcf}
+            ./ococo_log_to_nbupdate.sh {output.lg} > {output.lg2}
+        """
+
+rule bwa_sam:
+    input:
+        fq="{name}.fq",
+        fa="{name}.fa",
+    output:
+        sam="{name}.sam"
+    shell:
+        """
+            bwa index "{input.fa}"
+            bwa mem "{input.fa}" "{input.fq}" > "{output.sam}"
+        """
+
+rule genome:
+    input:
+        fa="{name}.fa",
+        fq="{name}.fq",
+    output:
+        fa="{name}.genome.fa"
+    params:
+        vcf="{name}.mutations.vcf"
+
+    shell:
+        """
+            bgzip -f "{params.vcf}"
+            tabix "{params.vcf}.gz"
+            bcftools consensus -f "{input.fa}" {params.vcf}.gz > {output.fa}
+            gzip -k -d "{params.vcf}.gz"
+        """
