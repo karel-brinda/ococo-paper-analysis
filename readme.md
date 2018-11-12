@@ -30,8 +30,8 @@ conda install --yes \
 ## Running the analysis
 
 ```
-make 01*
-make 02*
-make 03*
-make 04*
+make -C 01*
+make -C 02*
+make -C 03*
+make -C 04*
 ```
