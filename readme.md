@@ -6,7 +6,7 @@ the Ococo paper
 > Brinda K, Boeva V, Kucherov G. **Ococo: an online variant and consensus
 > caller.** arXiv:1712.01146 [q-bio.GN], 2018. https://arxiv.org/abs/1712.01146
 
-and in the Code Ocean capsule.
+and in the [Code Ocean capsule](https://codeocean.com/2018/11/14/ococo-colon-an-online-variant-and-consensus-caller).
 
 
 ## Dependencies & Bioconda environment
